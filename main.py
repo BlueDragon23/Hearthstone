@@ -23,6 +23,7 @@ CamPhi = 30
 CamTheta = 60
 CamRange = 250
 PerspectiveAngle = 45
+MaximumDataPoint = 0
 
 
 # Initialise GLUT and a few other things
@@ -75,6 +76,7 @@ def ResizeGLScene(nWidth, nHeight):
 
 
 def readData() -> []:
+    global MaximumDataPoint
     file = open("C:\\Users\\Aidan\\Dropbox\\University\\COSC3000\ComputerGraphics\\cards.collectible.json")
 
     cards = json.load(file)
@@ -90,6 +92,7 @@ def readData() -> []:
         attack.append(card['attack'])
 
     values = [(mana[i], health[i], attack[i]) for i in range(len(mana))]
+    MaximumDataPoint = max([max(x[i] for x in values) for i in range(3)]) * 10
     return values
 
 
@@ -111,6 +114,8 @@ def handler(button, state, x: int, y: int):
     pixel = pixel[0][0]
     # Select object based on colour
     print(pixel)
+    coords = [round(x, -1)//10 for x in getCoordsFromColour(pixel)]
+    print(coords)
     return None
 
 
@@ -148,8 +153,20 @@ def drawAxes(h):
 
     glEnd()
 
+def getColour(val):
+    minVal = 0.2
+    scale = 0.8
+    return 1 - (scale * val / MaximumDataPoint + minVal)
 
-def drawSphere(radius: int, x: int, y: int, z: int, largest) -> None:
+
+def getCoordsFromColour(pixel):
+    minVal = 0.2
+    scale = 0.8
+    [x, y, z] = [(- (col - 1) - minVal)*MaximumDataPoint/scale for col in pixel]
+    return [x, y, z]
+
+
+def drawSphere(radius: int, x: int, y: int, z: int) -> None:
     # Modify in isolation
     glPushMatrix()
 
@@ -157,14 +174,9 @@ def drawSphere(radius: int, x: int, y: int, z: int, largest) -> None:
     glColor4f(1, 1, 1, 1)
     #glEnable(GL_LIGHT0)
     #glEnable(GL_LIGHTING)
-    minVal = 0.3
-    scale = 0.7
-    maxX = largest[0]
-    maxY = largest[1]
-    maxZ = largest[2]
-    xColour = scale*x/maxX + minVal
-    yColour = scale*y/maxY + minVal
-    zColour = scale*z/maxZ + minVal
+    xColour = getColour(x)
+    yColour = getColour(y)
+    zColour = getColour(z)
     glColor3fv([xColour, yColour, zColour])
     # glMaterialfv(GL_FRONT, GL_DIFFUSE, [1*x/100, 1*y/100, 1*z/100, 1])
     # Sphere model
@@ -225,10 +237,9 @@ def DrawGLScene():
     drawAxes(1500)
     # data is a 4-tuple containing (numElems, mana, health, attack)
     mostPopular = max([x[0] for x in data])
-    largestElems = [max([x[i] for x in data])*spacing for i in range(1, 4)]
     for i in range(len(data)):
         drawSphere(data[i][0] * (spacing / 2) / mostPopular, data[i][1] * spacing, data[i][2] * spacing,
-                   data[i][3] * spacing, largestElems)
+                   data[i][3] * spacing)
 
     # since this is double buffered, we need to swap the buffers in order to
     # display what we just drew
