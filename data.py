@@ -29,6 +29,11 @@ def get_spells(cards):
     spells = [{key: card[key] for key in keys} for card in cards if card['type'] == 'SPELL']
     return spells
 
+def select_minion(minions, name):
+    for minion in minions:
+        if minion['name'] == name:
+            return minion
+
 if __name__ == "__main__":
     cards = read_json()
     minions = get_minions(cards)
