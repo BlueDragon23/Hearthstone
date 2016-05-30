@@ -14,6 +14,7 @@ from PIL import Image
 from io import BytesIO
 import numpy
 from OpenGL.arrays import vbo
+import random
 
 
 
@@ -215,6 +216,7 @@ def draw_minions(minions):
 
 
 def draw_card():
+    glDisable(GL_LIGHTING)
     height = 400
     width = 275
     glColor3f(1,1,1)
@@ -228,6 +230,7 @@ def draw_card():
     glTexCoord2f(0, 1)
     glVertex3f(0, height, 0)
     glEnd()
+    glEnable(GL_LIGHTING)
 
 
 def draw_status_bars(minion):
@@ -312,13 +315,7 @@ def draw_cardback():
     glPopMatrix()
     glEnable(GL_TEXTURE_2D)
 
-def draw_game(friendlyMinions, enemyMinions):
-    glPushMatrix()
-    draw_minions(friendlyMinions)
-    glPushMatrix()
-    glTranslate(0, 500, 0)
-    draw_minions(enemyMinions)
-    glPopMatrix()
+def draw_decks():
     glPushMatrix()
     glTranslate(boardWidth/2 - 500, 0, -250)
     glRotate(90, 0, 0, 1)
@@ -331,7 +328,48 @@ def draw_game(friendlyMinions, enemyMinions):
         draw_cardback()
         glTranslate(0, 0, 20)
     glPopMatrix()
-    glTranslate(0, -100, -10)
+
+def draw_mana():
+    glDisable(GL_TEXTURE_2D)
+    glPushMatrix()
+    glTranslate(boardWidth/5, -boardHeight/2, -5)
+    radius = 30
+    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, [41/255, 85/255, 146/255])
+    glEnable(GL_NORMALIZE)
+    for i in range(4):
+        glBegin(GL_TRIANGLE_FAN)
+        glNormal3f(0, 0, 1)
+        glVertex3f(0, 0, 10)
+        glNormal3f(-0.33, 0, 1)
+        glVertex3f(-radius, 0, 0)
+        glNormal3f(-0.25, 0.25, 1)
+        glVertex3f(-radius/2, radius, 0)
+        glNormal3f(0.25, 0.25, 1)
+        glVertex3f(radius/2, radius, 0)
+        glNormal3f(0.33, 0, 1)
+        glVertex3f(radius, 0, 0)
+        glNormal3f(0.25, -0.25, 1)
+        glVertex3f(radius/2, -radius, 0)
+        glNormal3f(-0.25, -0.25, 1)
+        glVertex3f(-radius/2, -radius, 0)
+        glNormal3f(-0.33, 0, 1)
+        glVertex3f(-radius, 0, 0)
+        glEnd()
+        glTranslate(radius*2, 0, 0)
+    glDisable(GL_NORMALIZE)
+    glPopMatrix()
+    glEnable(GL_TEXTURE_2D)
+
+def draw_game(friendlyMinions, enemyMinions):
+    glPushMatrix()
+    draw_minions(friendlyMinions)
+    glPushMatrix()
+    glTranslate(0, 500, 0)
+    draw_minions(enemyMinions)
+    glPopMatrix()
+    draw_decks()
+    draw_mana()
+    glTranslate(0, -100, -20)
     draw_board()
     glPopMatrix()
 
@@ -492,7 +530,7 @@ def DrawGLScene():
 
 def KeyPressed(key, x, y):
     global CamPhi, CamTheta, CamRange
-    global friendlyBoard, enemyBoard, potentialBoard1, potentialBoard2, potentialBoard3, previousBoard
+    global friendlyBoard, enemyBoard, potentialBoard1, potentialBoard2, potentialBoard3, previousBoard, hand
 
     # 'ord' gives the ascii int code of a character
     # 'chr' gives the character associated to the ascii int code.
@@ -522,21 +560,107 @@ def KeyPressed(key, x, y):
         CamRange -= 50
     elif 'q' in usedKeys and key == ord('Q') or key == ord('q'):
         CamRange += 50
-    elif key == ord('1'):
-        # First selection
-        previousBoard = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
-        friendlyBoard = potentialBoard1["friendly"]
-        enemyBoard = potentialBoard1["enemy"]
-    elif key == ord('2'):
-        # Second selection
-        previousBoard = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
-        friendlyBoard = potentialBoard2["friendly"]
-        enemyBoard = potentialBoard2["enemy"]
-    elif key == ord('3'):
-        # Third selection
-        previousBoard = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
-        friendlyBoard = potentialBoard3["friendly"]
-        enemyBoard = potentialBoard3["enemy"]
+    elif ord('1') <= key <= ord('3'):
+        previousBoard = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
+        if key == ord('2'):
+            # First selection
+            friendlyBoard = potentialBoard1["friendly"][:]
+            enemyBoard = potentialBoard1["enemy"][:]
+            hand = potentialBoard1["hand"][:]
+            # Next turn
+            enemyBoard.append(data.select_minion(minions, "Acolyte of Pain"))
+            init_texture(enemyBoard[-1]['name'])
+            hand.append(data.select_minion(cards, "Soulfire"))
+            init_texture(hand[-1]['name'])
+
+            potentialBoard1 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
+            potentialBoard1["friendly"].append(data.select_minion(minions, "Imp Gang Boss"))
+            potentialBoard1["friendly"].append(data.select_minion(minions, "Flame Imp"))
+            potentialBoard1["hand"].remove(potentialBoard1["hand"][0])
+            potentialBoard1["hand"].remove(potentialBoard1["hand"][0])
+            index = \
+            [i for i in range(len(potentialBoard1["friendly"])) if potentialBoard1["friendly"][i]['name'] == "Flame Imp"][0]
+            potentialBoard1["friendly"][index] = potentialBoard1["friendly"][index].copy()
+            potentialBoard1["friendly"][index]["health"] = 1
+            index = \
+            [i for i in range(len(potentialBoard1["enemy"])) if potentialBoard1["enemy"][i]['name'] == "Acolyte of Pain"][0]
+            potentialBoard1["enemy"].remove(potentialBoard1["enemy"][index])
+
+            potentialBoard2 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
+
+            potentialBoard2["friendly"].append(data.select_minion(minions, "Imp Gang Boss"))
+            potentialBoard2["friendly"].append(data.select_minion(minions, "Flame Imp"))
+            potentialBoard2["hand"].remove(potentialBoard2["hand"][0])
+            potentialBoard2["hand"].remove(potentialBoard2["hand"][0])
+
+            potentialBoard3 = potentialBoard1
+        elif key == ord('1'):
+            # Second selection
+            friendlyBoard = potentialBoard2["friendly"][:]
+            enemyBoard = potentialBoard2["enemy"][:]
+            hand = potentialBoard2["hand"][:]
+            # Next turn
+            enemyBoard.append(data.select_minion(minions, "Acolyte of Pain"))
+            init_texture(enemyBoard[-1]['name'])
+            hand.append(data.select_minion(cards, "Soulfire"))
+            init_texture(hand[-1]['name'])
+
+            potentialBoard1 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
+            potentialBoard1["friendly"].append(data.select_minion(minions, "Imp Gang Boss"))
+            index = \
+                [i for i in range(len(potentialBoard1["hand"])) if
+                 potentialBoard1["hand"][i]['name'] == "Imp Gang Boss"][0]
+            potentialBoard1["hand"].remove(potentialBoard1["hand"][index])
+            index = \
+            [i for i in range(len(potentialBoard1["hand"])) if potentialBoard1["hand"][i]['name'] == "Soulfire"][0]
+            potentialBoard1["hand"].remove(potentialBoard1["hand"][index])
+            index = \
+            [i for i in range(len(potentialBoard1["enemy"])) if potentialBoard1["enemy"][i]['name'] == "Acolyte of Pain"][0]
+            potentialBoard1["enemy"].remove(potentialBoard1["enemy"][index])
+
+
+            potentialBoard2 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
+            potentialBoard2["friendly"].append(data.select_minion(minions, "Imp Gang Boss"))
+            index = \
+            [i for i in range(len(potentialBoard2["hand"])) if potentialBoard2["hand"][i]['name'] == "Imp Gang Boss"][0]
+            potentialBoard2["hand"].remove(potentialBoard2["hand"][index])
+            index = \
+            [i for i in range(len(potentialBoard2["hand"])) if potentialBoard2["hand"][i]['name'] == "Soulfire"][0]
+            potentialBoard2["hand"].remove(potentialBoard2["hand"][index])
+
+
+            potentialBoard3 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
+            index = \
+            [i for i in range(len(potentialBoard3["enemy"])) if potentialBoard3["enemy"][i]['name'] == "Acolyte of Pain"][0]
+            potentialBoard3["enemy"].remove(potentialBoard3["enemy"][index])
+            index = \
+            [i for i in range(len(potentialBoard3["friendly"])) if potentialBoard3["friendly"][i]['name'] == "Flame Imp"][0]
+            potentialBoard3["friendly"][index] = potentialBoard3["friendly"][index].copy()
+            potentialBoard3["friendly"][index]["health"] = 1
+            index = \
+            [i for i in range(len(potentialBoard3["hand"])) if potentialBoard3["hand"][i]['name'] == "Mortal Coil"][0]
+            potentialBoard3["hand"].remove(potentialBoard3["hand"][index])
+        elif key == ord('3'):
+            # Third selection
+            friendlyBoard = potentialBoard3["friendly"][:]
+            enemyBoard = potentialBoard3["enemy"][:]
+            hand = potentialBoard3["hand"][:]
+            # Next turn
+            enemyBoard.append(data.select_minion(minions, "Acolyte of Pain"))
+            init_texture(enemyBoard[-1]['name'])
+            hand.append(data.select_minion(cards, "Soulfire"))
+            init_texture(hand[-1]['name'])
+
+            potentialBoard1 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
+
+            potentialBoard2 = {"friendly": friendlyBoard[:], "enemy": enemyBoard[:], "hand": hand[:]}
+
+            potentialBoard3 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
+        # Redefine potential boards
+
+    elif key == ord('0'):
+        friendlyBoard = previousBoard["friendly"]
+        enemyBoard = previousBoard["enemy"]
 
 
 if __name__ == "__main__":
@@ -574,15 +698,23 @@ if __name__ == "__main__":
     hand = [data.select_minion(cards, name) for name in handNames]
     friendlyBoard = [data.select_minion(minions, name) for name in friendlyBoardNames]
     enemyBoard = [data.select_minion(minions, name) for name in enemyBoardNames]
-    print(hand, friendlyBoard, enemyBoard)
-    potentialBoard1 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:]} # Balanced
+    potentialBoard1 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]} # Balanced
     potentialBoard1["friendly"].append(data.select_minion(minions, "Knife Juggler"))
+    potentialBoard1["hand"].remove(potentialBoard1["hand"][0]) # Knife Juggler
+    potentialBoard1["hand"].remove(potentialBoard1["hand"][0]) # Mortal Coil
     potentialBoard1["enemy"].remove(enemyBoard[0])
-    potentialBoard2 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:]} # Aggro
+
+    potentialBoard2 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]} # Aggro
     potentialBoard2["friendly"].append(data.select_minion(minions, "Knife Juggler"))
+    potentialBoard2["hand"].remove(potentialBoard2["hand"][0])
     potentialBoard2["friendly"].append(data.select_minion(minions, "Flame Imp"))
-    potentialBoard3 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:]} # Control
+    potentialBoard2["hand"].remove(potentialBoard2["hand"][1])
+    if random.randint(0, 1) == 0:
+        potentialBoard2["enemy"].remove(potentialBoard2["enemy"][0])
+
+    potentialBoard3 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]} # Control
     potentialBoard3["friendly"].append(data.select_minion(minions, "Imp Gang Boss"))
+    potentialBoard3["hand"].remove(potentialBoard3["hand"][3])
 
     potentialBoard3["friendly"][1] = potentialBoard3["friendly"][1].copy()
     potentialBoard3["friendly"][1]["health"] = 1
