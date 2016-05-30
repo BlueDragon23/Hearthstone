@@ -2,11 +2,18 @@ import json
 from math import *
 import time
 from OpenGL.GL import *
+import logging
+logging.basicConfig(level=logging.DEBUG)
+OpenGL.FULL_LOGGING = True
+OpenGL.ERROR_ON_COPY = True
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
 import data
+import sys
 from PIL import Image
 from io import BytesIO
+import numpy
+from OpenGL.arrays import vbo
 
 
 
@@ -16,11 +23,13 @@ CamTheta = 60
 CamRange = 1000
 PerspectiveAngle = 45
 MaximumDataPoint = 0
+cardback = []
+vertexBuffers = 0
 
 # Textures
 textureIds = []
-HighmaneId = 0
-HighmaneImage = None
+BoardId = 0
+BoardImage = None
 friendlyBoard = []
 enemyBoard = []
 textureDict = {} # Map card names to their textures
@@ -38,7 +47,7 @@ def InitGLUT(nWidth, nHeight, title=""):
 # We call this right after out OpenGL window is created.
 #
 def InitGL(nWidth, nHeight):
-    global HighmaneImage
+    global BoardImage
     # use black when clearing the colour buffers -- this will give us a black
     # background for the window
     glClearColor(0.0, 0.0, 0.0, 0.0)
@@ -52,9 +61,9 @@ def InitGL(nWidth, nHeight):
     glShadeModel(GL_SMOOTH)
 
     # Load textures
-    HighmaneImage = Image.open("cards/savannah-highmane.png")
+    BoardImage = Image.open("cards/Board.png")
 
-    InitTexturing( )
+    InitTexturing()
 
     ResizeGLScene(nWidth, nHeight)
 
@@ -63,23 +72,23 @@ def InitGL(nWidth, nHeight):
 # Initialises the textures being used for the scene
 #
 def InitTexturing():
-    global HighmaneId, HighmaneImage
+    global BoardId, BoardImage
 
     # create textures
-    HighmaneId = glGenTextures(1)
-
+    BoardId = glGenTextures(1)
+    print(BoardImage, BoardId)
     # just use linear filtering
-    glBindTexture(GL_TEXTURE_2D, HighmaneId)
+    glBindTexture(GL_TEXTURE_2D, BoardId)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
     data = BytesIO()
-    r, g, b, a = HighmaneImage.split()
+    r, g, b, a = BoardImage.split()
     dup = Image.merge("RGB", (r, g, b))
     dup.save(data, format="BMP")
     glTexImage2D(GL_TEXTURE_2D, 0, 4,
-                 HighmaneImage.width, HighmaneImage.height,
+                 dup.width, dup.height,
                  0, GL_BGR, GL_UNSIGNED_BYTE, data.getvalue())
 
 
@@ -88,6 +97,7 @@ def init_texture(origName: str):
         return
     name = origName.lower()
     name = "-".join(name.split())
+    name = str.replace(name, "'", "")
     image = Image.open("cards/{}.png".format(name))
 
     # create textures
@@ -125,7 +135,7 @@ def ResizeGLScene(nWidth, nHeight):
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
     # TODO: Set perspective
-    gluPerspective(PerspectiveAngle, float(nWidth) / float(nHeight), 0.1, 2000.0)
+    gluPerspective(PerspectiveAngle, float(nWidth) / float(nHeight), 0.1, 10000.0)
     glMatrixMode(GL_MODELVIEW)
 
 
@@ -156,6 +166,41 @@ def drawAxes(h):
 
     glEnd()
 
+def draw_board(x0: int, y0: int, z0: int,
+               orientation: bool):
+    """
+    :param x0:
+    :param y0:
+    :param z0:
+    :param x1:
+    :param y1:
+    :param z1:
+    :param orientation: Orientation should be true for vertical, false for flat
+    :return:
+    """
+    glPushMatrix()
+    glBindTexture(GL_TEXTURE_2D, BoardId)
+    width = 2200
+    height = 1000
+    x1 = x0 + width
+    if orientation:
+        y1 = y0
+        z1 = z0 + height
+    else:
+        y1 = y0 + height
+        z1 = z0
+    glColor3f(1, 1, 1)
+    glBegin(GL_QUADS)
+    glTexCoord2f(0, 0)
+    glVertex3f(x0, y0, z0)
+    glTexCoord2f(1, 0)
+    glVertex3f(x1, y0, z0)
+    glTexCoord2f(1, 1)
+    glVertex3f(x1, y1, z1)
+    glTexCoord2f(0, 1)
+    glVertex3f(x0, y1, z1)
+    glEnd()
+    glPopMatrix()
 
 def draw_minions():
     numCards = len(friendlyBoard)
@@ -165,12 +210,14 @@ def draw_minions():
         position = ((numCards) * ( -150 ) + 300 * i , -500, 0)
         glTranslatef(position[0], position[1], position[2])
         draw_card()
+        draw_cardback()
         glPopMatrix()
 
 
 def draw_card():
-    height = 396
-    width = 285
+    height = 400
+    width = 275
+    glColor3f(1,1,1)
     glBegin(GL_QUADS)
     glTexCoord2f(0, 0)
     glVertex3f(0, 0, 0)
@@ -182,8 +229,8 @@ def draw_card():
     glVertex3f(0, height, 0)
     glEnd()
 
+
 def draw_status_bars(minion, position):
-    glPushMatrix()
     width = 25
     scaling = 25
     attack = int(minion['attack'])
@@ -193,6 +240,7 @@ def draw_status_bars(minion, position):
         glRectf(0, 0, width, height)
 
     # Draw attack
+    glPushMatrix()
     glColor3fv([1, 1, 0])
     glTranslatef(position[0] + 50, position[1] + 70, position[2])
     glRotatef(90, 1, 0, 0)
@@ -206,9 +254,10 @@ def draw_status_bars(minion, position):
     glTranslatef( width, 0, 0 )
     glRotatef( 90, 0, 1, 0 )
     draw_rect(attack*scaling)
-    glTranslatef( width, 0, 0 )
+    glTranslatef( 0, attack*scaling, -width)
+    glRotatef(90, 1, 0, 0)
+    glRectf(0, 0, width, width)
     glPopMatrix()
-
 
     # Draw health
     glPushMatrix()
@@ -226,11 +275,40 @@ def draw_status_bars(minion, position):
     glTranslatef( width, 0, 0 )
     glRotatef( 90, 0, 1, 0 )
     draw_rect(health*scaling)
-    glTranslatef( width, 0, 0 )
+    glTranslatef( 0, health*scaling, -width)
+    glRotatef(90, 1, 0, 0)
+    glRectf(0, 0, width, width)
     glPopMatrix()
     glColor3fv([1, 1, 1])
 
+def draw_cardback():
+    glPushMatrix()
+    glTranslate(275/2, 400/2, -1)
+    glScale(6.66, 6.875, 1)
+    glRotate(90, 0, 1, 0)
+    glEnable(GL_LIGHT0)
+    glEnable(GL_LIGHTING)
+    for i in range(len(cardback)):
+        glEnableClientState(GL_VERTEX_ARRAY)
+        glEnableClientState(GL_NORMAL_ARRAY)
 
+        cardbackNormals[i].bind()
+        glNormalPointer(GL_FLOAT, 0, cardbackNormals[i])
+        cardbackVertices[i].bind()
+        material = data.find_mtl(cardback[i]["material"], materials)
+        # print(material)
+        glMaterialfv(GL_FRONT, GL_SPECULAR, material["specular"])
+        glMaterialfv(GL_FRONT, GL_SHININESS, [64])
+        glMaterialfv(GL_FRONT, GL_AMBIENT, material["ambient"])
+        glMaterialfv(GL_FRONT, GL_DIFFUSE, material["diffuse"])
+        
+        glVertexPointer(3, GL_FLOAT, 0, cardbackVertices[i])
+        glDrawArrays(GL_TRIANGLES, 0, len(cardbackVertices[i]))
+        glDisableClientState(GL_NORMAL_ARRAY)
+        glDisableClientState(GL_VERTEX_ARRAY)
+    glDisable(GL_LIGHTING)
+    glDisable(GL_LIGHT0)
+    glPopMatrix()
 
 def DrawGLScene():
     # clear the screen and depth buffer
@@ -238,7 +316,6 @@ def DrawGLScene():
     # reset the matrix stack with the identity matrix
     glLoadIdentity()
 
-    spacing = 10
     # camera setup
     r_xz = CamRange * cos(CamPhi * pi / 180)
     x = r_xz * sin(CamTheta * pi / 180)
@@ -251,7 +328,7 @@ def DrawGLScene():
 
 
     glEnable(GL_TEXTURE_2D)
-    #drawAxes(1500)
+    drawAxes(100)
     draw_minions()
     glDisable(GL_TEXTURE_2D)
 
@@ -260,6 +337,9 @@ def DrawGLScene():
     for i, minion in enumerate(friendlyBoard):
         position = ((numCards) * ( -150 ) + 300 * i , -500, 0)
         draw_status_bars(minion, position)
+
+    draw_board(0, 0, 0, False)
+
     glutSwapBuffers()
 
     time.sleep(0.01)
@@ -306,7 +386,7 @@ if __name__ == "__main__":
     # Defining global variables
     global hWindow, nWidth, nHeight
     global show_axes, fill_polygons
-    global data
+    global cardback, vertexBuffers
 
     # screen size
     nWidth = 1080
@@ -326,11 +406,21 @@ if __name__ == "__main__":
     cards = data.read_json()
     minions = data.get_minions(cards)
 
-    friendlyBoard = [minions[i] for i in range(6)]
+    friendlyBoard = [minions[i] for i in range(20, 24)]
 
     for minion in friendlyBoard:
         init_texture(minion['name'])
 
+    cardback = data.load_obj("C:\\Users\Aidan\Dropbox\\University\COSC3000\ComputerGraphics\cardback.obj")
+    materials = data.load_mtl("C:\\Users\Aidan\Dropbox\\University\COSC3000\ComputerGraphics\cardback.mtl")
+
+    cardbackVertices = []
+    for obj in cardback:
+        cardbackVertices.append(vbo.VBO(numpy.array(obj["vertices"], 'f')))
+
+    cardbackNormals = []
+    for obj in cardback:
+        cardbackNormals.append(vbo.VBO(numpy.array(obj["normals"], 'f')))
     # setup the display function callback
     glutDisplayFunc(DrawGLScene)
 
