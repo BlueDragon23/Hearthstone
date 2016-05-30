@@ -238,7 +238,8 @@ def draw_status_bars(minion):
 
     def draw_rect(height):
         glRectf(0, 0, width, height)
-
+    glDisable(GL_LIGHTING)
+    glDisable(GL_TEXTURE_2D)
     # Draw attack
     glPushMatrix()
     glColor3fv([1, 1, 0])
@@ -280,10 +281,13 @@ def draw_status_bars(minion):
     glRectf(0, 0, width, width)
     glPopMatrix()
     glColor3fv([1, 1, 1])
+    glEnable(GL_LIGHTING)
+    glEnable(GL_TEXTURE_2D)
 
 def draw_cardback():
+    glDisable(GL_TEXTURE_2D)
     glPushMatrix()
-    glTranslate(275/2, 400/2, -1)
+    glTranslate(275/2, 400/2, -10)
     glScale(6.66, 6.875, 1)
     glRotate(90, 0, 1, 0)
     for i in range(len(cardback)):
@@ -295,9 +299,10 @@ def draw_cardback():
         cardbackVertices[i].bind()
         material = data.find_mtl(cardback[i]["material"], materials)
         # print(material)
-        glMaterialfv(GL_FRONT, GL_SPECULAR, material["specular"])
-        glMaterialfv(GL_FRONT, GL_SHININESS, [64])
-        glMaterialfv(GL_FRONT, GL_AMBIENT, material["ambient"])
+        glMaterialfv(GL_FRONT, GL_SPECULAR, [0.1, 0.1, 0.1])
+        # glMaterialfv(GL_FRONT, GL_SPECULAR, material["specular"])
+        # glMaterialfv(GL_FRONT, GL_SHININESS, [2])
+        # glMaterialfv(GL_FRONT, GL_AMBIENT, material["ambient"])
         glMaterialfv(GL_FRONT, GL_DIFFUSE, material["diffuse"])
 
         glVertexPointer(3, GL_FLOAT, 0, cardbackVertices[i])
@@ -305,6 +310,7 @@ def draw_cardback():
         glDisableClientState(GL_NORMAL_ARRAY)
         glDisableClientState(GL_VERTEX_ARRAY)
     glPopMatrix()
+    glEnable(GL_TEXTURE_2D)
 
 def draw_game(friendlyMinions, enemyMinions):
     glPushMatrix()
@@ -359,7 +365,7 @@ def DrawGLScene():
               0.0, 0.0, 1.0)
 
 
-    # 3D overlay
+    # 3D
     glEnable(GL_TEXTURE_2D)
     glEnable(GL_LIGHTING)
     glLightfv(GL_LIGHT0, GL_AMBIENT, [0.1, 0.1, 0.1, 1])
@@ -493,19 +499,19 @@ def KeyPressed(key, x, y):
         glutDestroyWindow(hWindow)
         sys.exit()
     elif 's' in usedKeys and key == ord('S') or key == ord('s'):
-        CamPhi -= 1
+        CamPhi -= 2
         if CamPhi < -90:
             CamPhi = -90  # Limit
     elif 'w' in usedKeys and key == ord('W') or key == ord('w'):
-        CamPhi += 1
+        CamPhi += 2
         if CamPhi > 90:
             CamPhi = 90  # Limit
     elif 'a' in usedKeys and key == ord('A') or key == ord('a'):
-        CamTheta += 1
+        CamTheta += 3
         if CamTheta > 360:
             CamTheta -= 360  # Modulus
     elif 'd' in usedKeys and key == ord('D') or key == ord('d'):
-        CamTheta -= 1
+        CamTheta -= 3
         if CamTheta < 0:
             CamTheta += 360  # Modulus
     elif 'e' in usedKeys and key == ord('E') or key == ord('e'):
@@ -559,6 +565,7 @@ if __name__ == "__main__":
     minions = data.get_minions(cards)
 
     friendlyBoard = [minions[i] for i in range(20, 24)]
+    friendlyBoard[0]['health'] = 5
     enemyBoard = [minions[i] for i in range(50, 53)]
     potentialBoard1 = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
     potentialBoard2 = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
