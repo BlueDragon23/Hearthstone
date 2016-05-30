@@ -209,7 +209,8 @@ def draw_minions(minions):
         glTranslatef(position[0], position[1], position[2])
         draw_card()
         draw_cardback()
-        draw_status_bars(minion)
+        if minion['type'] == 'MINION':
+            draw_status_bars(minion)
         glPopMatrix()
 
 
@@ -567,13 +568,25 @@ if __name__ == "__main__":
     cards = data.read_json()
     minions = data.get_minions(cards)
 
-    hand = [minions[i] for i in range(27, 34)]
-    friendlyBoard = [minions[i] for i in range(20, 24)]
-    friendlyBoard[0]['health'] = 5
-    enemyBoard = [minions[i] for i in range(50, 53)]
-    potentialBoard1 = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
-    potentialBoard2 = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
-    potentialBoard3 = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
+    handNames = ['Knife Juggler', 'Mortal Coil', 'Flame Imp', 'Imp Gang Boss']
+    friendlyBoardNames = ['Flame Imp', 'Flame Juggler']
+    enemyBoardNames = ['Loot Hoarder']
+    hand = [data.select_minion(cards, name) for name in handNames]
+    friendlyBoard = [data.select_minion(minions, name) for name in friendlyBoardNames]
+    enemyBoard = [data.select_minion(minions, name) for name in enemyBoardNames]
+    print(hand, friendlyBoard, enemyBoard)
+    potentialBoard1 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:]} # Balanced
+    potentialBoard1["friendly"].append(data.select_minion(minions, "Knife Juggler"))
+    potentialBoard1["enemy"].remove(enemyBoard[0])
+    potentialBoard2 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:]} # Aggro
+    potentialBoard2["friendly"].append(data.select_minion(minions, "Knife Juggler"))
+    potentialBoard2["friendly"].append(data.select_minion(minions, "Flame Imp"))
+    potentialBoard3 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:]} # Control
+    potentialBoard3["friendly"].append(data.select_minion(minions, "Imp Gang Boss"))
+
+    potentialBoard3["friendly"][1] = potentialBoard3["friendly"][1].copy()
+    potentialBoard3["friendly"][1]["health"] = 1
+    potentialBoard3["enemy"].remove(enemyBoard[0])
 
     for minion in hand:
         init_texture(minion['name'])
