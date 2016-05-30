@@ -286,8 +286,6 @@ def draw_cardback():
     glTranslate(275/2, 400/2, -1)
     glScale(6.66, 6.875, 1)
     glRotate(90, 0, 1, 0)
-    glEnable(GL_LIGHT0)
-    glEnable(GL_LIGHTING)
     for i in range(len(cardback)):
         glEnableClientState(GL_VERTEX_ARRAY)
         glEnableClientState(GL_NORMAL_ARRAY)
@@ -306,8 +304,6 @@ def draw_cardback():
         glDrawArrays(GL_TRIANGLES, 0, len(cardbackVertices[i]))
         glDisableClientState(GL_NORMAL_ARRAY)
         glDisableClientState(GL_VERTEX_ARRAY)
-    glDisable(GL_LIGHTING)
-    glDisable(GL_LIGHT0)
     glPopMatrix()
 
 def draw_game(friendlyMinions, enemyMinions):
@@ -365,20 +361,63 @@ def DrawGLScene():
 
     # 3D overlay
     glEnable(GL_TEXTURE_2D)
+    glEnable(GL_LIGHTING)
+    glLightfv(GL_LIGHT0, GL_AMBIENT, [0.1, 0.1, 0.1, 1])
+    glEnable(GL_LIGHT0)
     # drawAxes(100)
-    # draw_minions()
-    draw_game(friendlyBoard, enemyBoard)
+
+    glLightfv(GL_LIGHT4, GL_POSITION, [0, 0, 2*boardHeight, 1])
+    glLightfv(GL_LIGHT4, GL_SPOT_DIRECTION, [0, 0, -1])
+    glLightfv(GL_LIGHT4, GL_SPOT_CUTOFF, 45)
+    glLightfv(GL_LIGHT4, GL_AMBIENT, [1, 1, 1, 1])
+    glEnable(GL_LIGHT4)
+
+    draw_game(friendlyBoard, enemyBoard) # Current board
+    glDisable(GL_LIGHT4)
+
     glTranslate(0, boardHeight + sqrt(2)*boardHeight/2, boardHeight/2)
     glRotate(90, 1, 0, 0)
-    # glTranslate(-1.5*boardWidth, 2*boardHeight, 0)
-    draw_game(potentialBoard1["friendly"], potentialBoard1["enemy"])
+
+    glLightfv(GL_LIGHT1, GL_POSITION, [0, boardHeight, 0, 1])
+    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, [0, -1, 0])
+    glLightfv(GL_LIGHT1, GL_SPOT_CUTOFF, 45)
+    glLightfv(GL_LIGHT1, GL_AMBIENT, [0, 1, 0, 1])
+    glLightfv(GL_LIGHT1, GL_DIFFUSE, [0, 1, 0, 1])
+    glLightfv(GL_LIGHT1, GL_SPECULAR, [0, 1, 0, 1])
+    glEnable(GL_LIGHT1)
+
+    draw_game(potentialBoard1["friendly"], potentialBoard1["enemy"]) # Middle board
+    glDisable(GL_LIGHT1)
+
     glTranslate(-boardWidth, 0, sqrt(2)*boardHeight/2)
     glRotate(45, 0, 1, 0)
-    draw_game(potentialBoard2["friendly"], potentialBoard2["enemy"])
+
+    glLightfv(GL_LIGHT2, GL_POSITION, [0, boardHeight, 0, 1])
+    glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, [-1, -1, 0])
+    glLightfv(GL_LIGHT2, GL_SPOT_CUTOFF, 45)
+    glLightfv(GL_LIGHT2, GL_AMBIENT, [1, 0, 0, 1])
+    glLightfv(GL_LIGHT2, GL_DIFFUSE, [1, 0, 0, 1])
+    glLightfv(GL_LIGHT2, GL_SPECULAR, [1, 0, 0, 1])
+    glEnable(GL_LIGHT2)
+
+    draw_game(potentialBoard2["friendly"], potentialBoard2["enemy"]) # Left board
+    glDisable(GL_LIGHT2)
     glRotate(-45, 0, 1, 0)
     glTranslate(2*boardWidth, 0, 0)
     glRotate(-45, 0, 1, 0)
-    draw_game(potentialBoard3["friendly"], potentialBoard3["enemy"])
+
+    glLightfv(GL_LIGHT3, GL_POSITION, [0, boardHeight, 0, 1])
+    glLightfv(GL_LIGHT3, GL_SPOT_DIRECTION, [1, -1, 0])
+    glLightfv(GL_LIGHT2, GL_SPOT_CUTOFF, 45)
+    glLightfv(GL_LIGHT3, GL_AMBIENT, [0, 0, 1, 1])
+    glLightfv(GL_LIGHT3, GL_DIFFUSE, [0, 0, 1, 1])
+    glLightfv(GL_LIGHT3, GL_SPECULAR, [0, 0, 1, 1])
+    glEnable(GL_LIGHT3)
+
+    draw_game(potentialBoard3["friendly"], potentialBoard3["enemy"]) # Right board
+    glDisable(GL_LIGHT3)
+    glDisable(GL_LIGHT0)
+    glDisable(GL_LIGHTING)
     glDisable(GL_TEXTURE_2D)
 
     # Render 2D Overlay
