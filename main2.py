@@ -19,8 +19,9 @@ from OpenGL.arrays import vbo
 
 # Globals
 CamPhi = 30
-CamTheta = 60
-CamRange = 2000
+CamTheta = 0
+CamRange = 0
+InnerRadius = 0
 PerspectiveAngle = 45
 MaximumDataPoint = 0
 cardback = []
@@ -331,16 +332,25 @@ def DrawGLScene():
     glLoadIdentity()
 
     # camera setup
-    r_xz = CamRange * cos(CamPhi * pi / 180)
-    x = r_xz * sin(CamTheta * pi / 180)
-    y = CamRange * sin(CamPhi * pi / 180)
-    z = r_xz * cos(CamTheta * pi / 180)
-
-    gluLookAt(x, y, z,
-              0.0, 0.0, 0.0,
+    # r_xz = CamRange * cos(CamPhi * pi / 180)
+    # x = r_xz * sin(CamTheta * pi / 180)
+    # y = CamRange * sin(CamPhi * pi / 180)
+    # z = r_xz * cos(CamTheta * pi / 180)
+    #
+    # gluLookAt(x, y, z,
+    #           0.0, 0.0, 0.0,
+    #           0.0, 0.0, 1.0)
+    x = CamRange * cos(CamTheta * pi / 180)
+    y = CamRange * sin(CamTheta * pi / 180)
+    lookX = boardHeight * cos(CamTheta * pi / 180)
+    lookY = boardHeight * sin(CamTheta * pi / 180)
+    lookZ = boardHeight * sin(CamPhi * pi / 180)
+    gluLookAt(x, y, boardHeight/2,
+              lookX, lookY, lookZ,
               0.0, 0.0, 1.0)
 
 
+    # 3D overlay
     glEnable(GL_TEXTURE_2D)
     # drawAxes(100)
     # draw_minions()
@@ -357,6 +367,8 @@ def DrawGLScene():
     glRotate(-45, 0, 1, 0)
     draw_game(friendlyBoard, [])
     glDisable(GL_TEXTURE_2D)
+
+    # Render 2D Overlay
 
     glutSwapBuffers()
 
@@ -383,17 +395,17 @@ def KeyPressed(key, x, y):
         if CamPhi > 90:
             CamPhi = 90  # Limit
     elif 'a' in usedKeys and key == ord('A') or key == ord('a'):
-        CamTheta -= 1
-        if CamTheta < 0:
-            CamTheta += 360  # Modulus
-    elif 'd' in usedKeys and key == ord('D') or key == ord('d'):
         CamTheta += 1
         if CamTheta > 360:
             CamTheta -= 360  # Modulus
+    elif 'd' in usedKeys and key == ord('D') or key == ord('d'):
+        CamTheta -= 1
+        if CamTheta < 0:
+            CamTheta += 360  # Modulus
     elif 'e' in usedKeys and key == ord('E') or key == ord('e'):
-        CamRange -= 5
+        CamRange -= 50
     elif 'q' in usedKeys and key == ord('Q') or key == ord('q'):
-        CamRange += 5
+        CamRange += 50
 
 
 if __name__ == "__main__":
