@@ -17,7 +17,7 @@ def get_minions(cards) -> []:
     """
     Read data from the card data file. Returns a list of {}
     """
-    keys = ["cost", "health", "attack", "name", "text"]
+    keys = ["cost", "health", "attack", "name", "text", "type"]
     values = [{key: card.get(key, "") for key in keys} for card in cards if card['type'] == 'MINION']
     return values
 
@@ -26,7 +26,7 @@ def get_spells(cards):
     """
     :return: all spells in the game
     """
-    keys = ["name", "cost", "text"]
+    keys = ["name", "cost", "text", "type"]
     spells = [{key: card[key] for key in keys} for card in cards if card['type'] == 'SPELL']
     return spells
 
