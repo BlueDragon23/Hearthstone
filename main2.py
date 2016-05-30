@@ -19,7 +19,7 @@ from OpenGL.arrays import vbo
 
 # Globals
 CamPhi = 30
-CamTheta = 0
+CamTheta = 90
 CamRange = 0
 InnerRadius = 0
 PerspectiveAngle = 45
@@ -35,6 +35,10 @@ BoardId = 0
 BoardImage = None
 friendlyBoard = []
 enemyBoard = []
+potentialBoard1 = {"friendly" : [], "enemy" : []}
+potentialBoard2 = {}
+potentialBoard3 = {}
+previousBoard = {}
 textureDict = {} # Map card names to their textures
 
 
@@ -310,6 +314,10 @@ def draw_game(friendlyMinions, enemyMinions):
     glPushMatrix()
     draw_minions(friendlyMinions)
     glPushMatrix()
+    glTranslate(0, 500, 0)
+    draw_minions(enemyMinions)
+    glPopMatrix()
+    glPushMatrix()
     glTranslate(boardWidth/2 - 500, 0, -250)
     glRotate(90, 0, 0, 1)
     glRotate(90, 1, 0, 0)
@@ -326,8 +334,13 @@ def draw_game(friendlyMinions, enemyMinions):
     glPopMatrix()
 
 def DrawGLScene():
+    glEnable(GL_DEPTH_TEST)
     # clear the screen and depth buffer
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    width = glutGet(GLUT_WINDOW_WIDTH)
+    height = glutGet(GLUT_WINDOW_HEIGHT)
+    ResizeGLScene(width, height)
+    glMatrixMode(GL_MODELVIEW)
     # reset the matrix stack with the identity matrix
     glLoadIdentity()
 
@@ -354,21 +367,74 @@ def DrawGLScene():
     glEnable(GL_TEXTURE_2D)
     # drawAxes(100)
     # draw_minions()
-    draw_game(friendlyBoard, [])
+    draw_game(friendlyBoard, enemyBoard)
     glTranslate(0, boardHeight + sqrt(2)*boardHeight/2, boardHeight/2)
     glRotate(90, 1, 0, 0)
     # glTranslate(-1.5*boardWidth, 2*boardHeight, 0)
-    draw_game(friendlyBoard, [])
+    draw_game(potentialBoard1["friendly"], potentialBoard1["enemy"])
     glTranslate(-boardWidth, 0, sqrt(2)*boardHeight/2)
     glRotate(45, 0, 1, 0)
-    draw_game(friendlyBoard, [])
+    draw_game(potentialBoard2["friendly"], potentialBoard2["enemy"])
     glRotate(-45, 0, 1, 0)
     glTranslate(2*boardWidth, 0, 0)
     glRotate(-45, 0, 1, 0)
-    draw_game(friendlyBoard, [])
+    draw_game(potentialBoard3["friendly"], potentialBoard3["enemy"])
     glDisable(GL_TEXTURE_2D)
 
     # Render 2D Overlay
+    glDisable(GL_DEPTH_TEST)
+    glMatrixMode(GL_PROJECTION)
+    glLoadIdentity()
+    width = glutGet(GLUT_WINDOW_WIDTH)
+    height = glutGet(GLUT_WINDOW_HEIGHT)
+    gluOrtho2D(0, width, 0, height)
+
+    glMatrixMode(GL_MODELVIEW)
+    glPushMatrix()
+    glLoadIdentity()
+    def draw_square(x, y, size):
+        """
+        Treats the top left corner as 0, 0
+        """
+        glColor([0.8*x for x in [1, 1, 1]])
+        glBegin(GL_QUADS)
+        glVertex2f(x, height - y)
+        glVertex2f(x, height - y - size)
+        glVertex2f(x+size, height - y - size)
+        glVertex2f(x+size, height - y)
+        glEnd()
+    size = 50
+    margin = 10
+    draw_square(0, 0, size)
+    glColor(0, 0, 0)
+    glBegin(GL_LINE_STRIP)
+    glVertex2f(size/2, height - margin)
+    glVertex2f(size/2, height - (size - margin))
+    glEnd()
+    draw_square(width/2 - size/2, 0, size)
+    glColor(0, 0, 0)
+    glBegin(GL_LINE_STRIP)
+    glVertex2f(width/2 - size/2 + margin, height - margin)
+    glVertex2f(width/2 + size/2 - margin, height - margin) # -
+    glVertex2f(width/2 + size/2 - margin, height - size/2) # |
+    glVertex2f(width/2 - size/2 + margin, height - size/2) # -
+    glVertex2f(width/2 - size/2 + margin, height - size + margin) # |
+    glVertex2f(width/2 + size/2 - margin, height - size + margin) # -
+    glEnd()
+    draw_square(width - size, 0, size)
+    glColor(0, 0, 0)
+    glBegin(GL_LINE_STRIP)
+    glVertex2f(width - size + margin, height - margin)
+    glVertex2f(width - margin, height - margin) # -
+    glVertex2f(width - margin, height - size/2) # |
+    glVertex2f(width - size + margin, height - size/2) # -
+    glVertex2f(width - margin, height - size/2) # -
+    glVertex2f(width - margin, height - size + margin) # |
+    glVertex2f(width - (size - margin), height - size + margin) # -
+    glEnd()
+    glPopMatrix()
+
+
 
     glutSwapBuffers()
 
@@ -377,6 +443,7 @@ def DrawGLScene():
 
 def KeyPressed(key, x, y):
     global CamPhi, CamTheta, CamRange
+    global friendlyBoard, enemyBoard, potentialBoard1, potentialBoard2, potentialBoard3, previousBoard
 
     # 'ord' gives the ascii int code of a character
     # 'chr' gives the character associated to the ascii int code.
@@ -406,6 +473,21 @@ def KeyPressed(key, x, y):
         CamRange -= 50
     elif 'q' in usedKeys and key == ord('Q') or key == ord('q'):
         CamRange += 50
+    elif key == ord('1'):
+        # First selection
+        previousBoard = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
+        friendlyBoard = potentialBoard1["friendly"]
+        enemyBoard = potentialBoard1["enemy"]
+    elif key == ord('2'):
+        # Second selection
+        previousBoard = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
+        friendlyBoard = potentialBoard2["friendly"]
+        enemyBoard = potentialBoard2["enemy"]
+    elif key == ord('3'):
+        # Third selection
+        previousBoard = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
+        friendlyBoard = potentialBoard3["friendly"]
+        enemyBoard = potentialBoard3["enemy"]
 
 
 if __name__ == "__main__":
@@ -438,8 +520,15 @@ if __name__ == "__main__":
     minions = data.get_minions(cards)
 
     friendlyBoard = [minions[i] for i in range(20, 24)]
+    enemyBoard = [minions[i] for i in range(50, 53)]
+    potentialBoard1 = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
+    potentialBoard2 = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
+    potentialBoard3 = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
 
     for minion in friendlyBoard:
+        init_texture(minion['name'])
+
+    for minion in enemyBoard:
         init_texture(minion['name'])
 
     cardback = data.load_obj("C:\\Users\Aidan\Dropbox\\University\COSC3000\ComputerGraphics\cardback.obj")
