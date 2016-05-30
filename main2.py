@@ -28,6 +28,7 @@ cardback = []
 vertexBuffers = 0
 boardWidth = 3080
 boardHeight = 1400
+mana = 3
 
 # Textures
 textureIds = []
@@ -336,7 +337,7 @@ def draw_mana():
     radius = 30
     glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, [41/255, 85/255, 146/255])
     glEnable(GL_NORMALIZE)
-    for i in range(4):
+    for _ in range(mana):
         glBegin(GL_TRIANGLE_FAN)
         glNormal3f(0, 0, 1)
         glVertex3f(0, 0, 10)
@@ -531,6 +532,7 @@ def DrawGLScene():
 def KeyPressed(key, x, y):
     global CamPhi, CamTheta, CamRange
     global friendlyBoard, enemyBoard, potentialBoard1, potentialBoard2, potentialBoard3, previousBoard, hand
+    global mana
 
     # 'ord' gives the ascii int code of a character
     # 'chr' gives the character associated to the ascii int code.
@@ -562,6 +564,7 @@ def KeyPressed(key, x, y):
         CamRange += 50
     elif ord('1') <= key <= ord('3'):
         previousBoard = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
+        mana = min(10, mana + 1)
         if key == ord('2'):
             # First selection
             friendlyBoard = potentialBoard1["friendly"][:]
