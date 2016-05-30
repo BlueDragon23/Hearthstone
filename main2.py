@@ -20,8 +20,7 @@ from OpenGL.arrays import vbo
 # Globals
 CamPhi = 30
 CamTheta = 90
-CamRange = 0
-InnerRadius = 0
+CamRange = -3000
 PerspectiveAngle = 45
 MaximumDataPoint = 0
 cardback = []
@@ -33,6 +32,7 @@ boardHeight = 1400
 textureIds = []
 BoardId = 0
 BoardImage = None
+hand = []
 friendlyBoard = []
 enemyBoard = []
 potentialBoard1 = {"friendly" : [], "enemy" : []}
@@ -141,7 +141,6 @@ def ResizeGLScene(nWidth, nHeight):
     glViewport(0, 0, nWidth, nHeight)
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
-    # TODO: Set perspective
     gluPerspective(PerspectiveAngle, float(nWidth) / float(nHeight), 0.1, 10000.0)
     glMatrixMode(GL_MODELVIEW)
 
@@ -368,7 +367,7 @@ def DrawGLScene():
     # 3D
     glEnable(GL_TEXTURE_2D)
     glEnable(GL_LIGHTING)
-    glLightfv(GL_LIGHT0, GL_AMBIENT, [0.1, 0.1, 0.1, 1])
+    glLightfv(GL_LIGHT0, GL_AMBIENT, [0.3, 0.3, 0.3, 1])
     glEnable(GL_LIGHT0)
     # drawAxes(100)
 
@@ -379,6 +378,10 @@ def DrawGLScene():
     glEnable(GL_LIGHT4)
 
     draw_game(friendlyBoard, enemyBoard) # Current board
+    glPushMatrix()
+    glTranslate(0, -boardHeight/2, 0)
+    draw_minions(hand)
+    glPopMatrix()
     glDisable(GL_LIGHT4)
 
     glTranslate(0, boardHeight + sqrt(2)*boardHeight/2, boardHeight/2)
@@ -559,17 +562,21 @@ if __name__ == "__main__":
     show_axes = True
     fill_polygons = True
     camera_rotation = 60
-
+    print(CamRange)
     # Read in our data
     cards = data.read_json()
     minions = data.get_minions(cards)
 
+    hand = [minions[i] for i in range(27, 34)]
     friendlyBoard = [minions[i] for i in range(20, 24)]
     friendlyBoard[0]['health'] = 5
     enemyBoard = [minions[i] for i in range(50, 53)]
     potentialBoard1 = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
     potentialBoard2 = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
     potentialBoard3 = {"friendly" : friendlyBoard, "enemy" : enemyBoard}
+
+    for minion in hand:
+        init_texture(minion['name'])
 
     for minion in friendlyBoard:
         init_texture(minion['name'])
