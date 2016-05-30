@@ -20,11 +20,13 @@ from OpenGL.arrays import vbo
 # Globals
 CamPhi = 30
 CamTheta = 60
-CamRange = 1000
+CamRange = 2000
 PerspectiveAngle = 45
 MaximumDataPoint = 0
 cardback = []
 vertexBuffers = 0
+boardWidth = 3080
+boardHeight = 1400
 
 # Textures
 textureIds = []
@@ -166,8 +168,7 @@ def drawAxes(h):
 
     glEnd()
 
-def draw_board(x0: int, y0: int, z0: int,
-               orientation: bool):
+def draw_board():
     """
     :param x0:
     :param y0:
@@ -175,42 +176,36 @@ def draw_board(x0: int, y0: int, z0: int,
     :param x1:
     :param y1:
     :param z1:
-    :param orientation: Orientation should be true for vertical, false for flat
+    :param isVertical: Orientation should be true for vertical, false for flat
     :return:
     """
     glPushMatrix()
     glBindTexture(GL_TEXTURE_2D, BoardId)
-    width = 2200
-    height = 1000
-    x1 = x0 + width
-    if orientation:
-        y1 = y0
-        z1 = z0 + height
-    else:
-        y1 = y0 + height
-        z1 = z0
+    width = boardWidth
+    height = boardHeight
     glColor3f(1, 1, 1)
     glBegin(GL_QUADS)
     glTexCoord2f(0, 0)
-    glVertex3f(x0, y0, z0)
+    glVertex3f(-width/2, -height/2, 0)
     glTexCoord2f(1, 0)
-    glVertex3f(x1, y0, z0)
+    glVertex3f(width/2, -height/2, 0)
     glTexCoord2f(1, 1)
-    glVertex3f(x1, y1, z1)
+    glVertex3f(width/2, height/2, 0)
     glTexCoord2f(0, 1)
-    glVertex3f(x0, y1, z1)
+    glVertex3f(-width/2, height/2, 0)
     glEnd()
     glPopMatrix()
 
-def draw_minions():
-    numCards = len(friendlyBoard)
-    for i, minion in enumerate(friendlyBoard):
+def draw_minions(minions):
+    numCards = len(minions)
+    for i, minion in enumerate(minions):
         glPushMatrix()
         glBindTexture(GL_TEXTURE_2D, textureDict[minion['name']])
         position = ((numCards) * ( -150 ) + 300 * i , -500, 0)
         glTranslatef(position[0], position[1], position[2])
         draw_card()
         draw_cardback()
+        draw_status_bars(minion)
         glPopMatrix()
 
 
@@ -230,7 +225,7 @@ def draw_card():
     glEnd()
 
 
-def draw_status_bars(minion, position):
+def draw_status_bars(minion):
     width = 25
     scaling = 25
     attack = int(minion['attack'])
@@ -242,7 +237,7 @@ def draw_status_bars(minion, position):
     # Draw attack
     glPushMatrix()
     glColor3fv([1, 1, 0])
-    glTranslatef(position[0] + 50, position[1] + 70, position[2])
+    glTranslatef(50, 70, 0)
     glRotatef(90, 1, 0, 0)
     draw_rect(attack*scaling)
     glTranslatef( width, 0, 0 )
@@ -263,7 +258,7 @@ def draw_status_bars(minion, position):
     glPushMatrix()
 
     glColor3fv([1, 0, 0])
-    glTranslatef(position[0] + 300 - 50, position[1] + 70, position[2])
+    glTranslatef(300 - 50, 70, 0)
     glRotatef(90, 1, 0, 0)
     draw_rect(health*scaling)
     glTranslatef( width, 0, 0 )
@@ -301,13 +296,32 @@ def draw_cardback():
         glMaterialfv(GL_FRONT, GL_SHININESS, [64])
         glMaterialfv(GL_FRONT, GL_AMBIENT, material["ambient"])
         glMaterialfv(GL_FRONT, GL_DIFFUSE, material["diffuse"])
-        
+
         glVertexPointer(3, GL_FLOAT, 0, cardbackVertices[i])
         glDrawArrays(GL_TRIANGLES, 0, len(cardbackVertices[i]))
         glDisableClientState(GL_NORMAL_ARRAY)
         glDisableClientState(GL_VERTEX_ARRAY)
     glDisable(GL_LIGHTING)
     glDisable(GL_LIGHT0)
+    glPopMatrix()
+
+def draw_game(friendlyMinions, enemyMinions):
+    glPushMatrix()
+    draw_minions(friendlyMinions)
+    glPushMatrix()
+    glTranslate(boardWidth/2 - 500, 0, -250)
+    glRotate(90, 0, 0, 1)
+    glRotate(90, 1, 0, 0)
+    for _ in range(5):
+        draw_cardback()
+        glTranslate(0, 0, 20)
+    glTranslate(-boardHeight/4, 0, -20*5)
+    for _ in range(5):
+        draw_cardback()
+        glTranslate(0, 0, 20)
+    glPopMatrix()
+    glTranslate(0, -100, -10)
+    draw_board()
     glPopMatrix()
 
 def DrawGLScene():
@@ -328,17 +342,21 @@ def DrawGLScene():
 
 
     glEnable(GL_TEXTURE_2D)
-    drawAxes(100)
-    draw_minions()
+    # drawAxes(100)
+    # draw_minions()
+    draw_game(friendlyBoard, [])
+    glTranslate(0, boardHeight + sqrt(2)*boardHeight/2, boardHeight/2)
+    glRotate(90, 1, 0, 0)
+    # glTranslate(-1.5*boardWidth, 2*boardHeight, 0)
+    draw_game(friendlyBoard, [])
+    glTranslate(-boardWidth, 0, sqrt(2)*boardHeight/2)
+    glRotate(45, 0, 1, 0)
+    draw_game(friendlyBoard, [])
+    glRotate(-45, 0, 1, 0)
+    glTranslate(2*boardWidth, 0, 0)
+    glRotate(-45, 0, 1, 0)
+    draw_game(friendlyBoard, [])
     glDisable(GL_TEXTURE_2D)
-
-    numCards = len(friendlyBoard)
-
-    for i, minion in enumerate(friendlyBoard):
-        position = ((numCards) * ( -150 ) + 300 * i , -500, 0)
-        draw_status_bars(minion, position)
-
-    draw_board(0, 0, 0, False)
 
     glutSwapBuffers()
 
@@ -352,28 +370,29 @@ def KeyPressed(key, x, y):
     # 'chr' gives the character associated to the ascii int code.
     key = ord(key)
 
+    usedKeys = ['a', 's', 'w', 'd', 'q', 'e']
     if key == 27:  # Escape
         glutDestroyWindow(hWindow)
         sys.exit()
-    elif key == ord('S') or key == ord('s'):
+    elif 's' in usedKeys and key == ord('S') or key == ord('s'):
         CamPhi -= 1
         if CamPhi < -90:
             CamPhi = -90  # Limit
-    elif key == ord('W') or key == ord('w'):
+    elif 'w' in usedKeys and key == ord('W') or key == ord('w'):
         CamPhi += 1
         if CamPhi > 90:
             CamPhi = 90  # Limit
-    elif key == ord('A') or key == ord('a'):
+    elif 'a' in usedKeys and key == ord('A') or key == ord('a'):
         CamTheta -= 1
         if CamTheta < 0:
             CamTheta += 360  # Modulus
-    elif key == ord('D') or key == ord('d'):
+    elif 'd' in usedKeys and key == ord('D') or key == ord('d'):
         CamTheta += 1
         if CamTheta > 360:
             CamTheta -= 360  # Modulus
-    elif key == ord('E') or key == ord('e'):
+    elif 'e' in usedKeys and key == ord('E') or key == ord('e'):
         CamRange -= 5
-    elif key == ord('Q') or key == ord('q'):
+    elif 'q' in usedKeys and key == ord('Q') or key == ord('q'):
         CamRange += 5
 
 
