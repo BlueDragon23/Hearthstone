@@ -763,8 +763,8 @@ if __name__ == "__main__":
     for minion in enemyBoard:
         init_texture(minion['name'])
 
-    cardback = data.load_obj("C:\\Users\Aidan\Dropbox\\University\COSC3000\ComputerGraphics\cardback.obj")
-    materials = data.load_mtl("C:\\Users\Aidan\Dropbox\\University\COSC3000\ComputerGraphics\cardback.mtl")
+    cardback = data.load_obj("cardback.obj")
+    materials = data.load_mtl("cardback.mtl")
 
     cardbackVertices = []
     for obj in cardback:
