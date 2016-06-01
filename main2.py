@@ -321,13 +321,14 @@ def draw_decks():
     glTranslate(boardWidth/2 - 500, 0, -250)
     glRotate(90, 0, 0, 1)
     glRotate(90, 1, 0, 0)
+    difference = 20
     for _ in range(5):
         draw_cardback()
-        glTranslate(0, 0, 20)
-    glTranslate(-boardHeight/4, 0, -20*5)
+        glTranslate(0, 0, difference)
+    glTranslate(-boardHeight/4, 0, -difference*5)
     for _ in range(5):
         draw_cardback()
-        glTranslate(0, 0, 20)
+        glTranslate(0, 0, difference)
     glPopMatrix()
 
 def draw_mana():
@@ -372,6 +373,66 @@ def draw_game(friendlyMinions, enemyMinions):
     draw_mana()
     glTranslate(0, -100, -20)
     draw_board()
+    glPopMatrix()
+
+def draw_numbers(width, height):
+    def draw_square(x, y, size):
+        """
+        Treats the top left corner as 0, 0
+        """
+        glColor([0.8 * x for x in [1, 1, 1]])
+        glBegin(GL_QUADS)
+        glVertex2f(x, height - y)
+        glVertex2f(x, height - y - size)
+        glVertex2f(x + size, height - y - size)
+        glVertex2f(x + size, height - y)
+        glEnd()
+
+    size = 50
+    margin = 10
+    draw_square(0, 0, size)
+    glColor(0, 0, 0)
+    glBegin(GL_LINE_STRIP)
+    glVertex2f(size / 2, height - margin)
+    glVertex2f(size / 2, height - (size - margin))
+    glEnd()
+    draw_square(width / 2 - size / 2, 0, size)
+    glColor(0, 0, 0)
+    glBegin(GL_LINE_STRIP)
+    glVertex2f(width / 2 - size / 2 + margin, height - margin)
+    glVertex2f(width / 2 + size / 2 - margin, height - margin)  # -
+    glVertex2f(width / 2 + size / 2 - margin, height - size / 2)  # |
+    glVertex2f(width / 2 - size / 2 + margin, height - size / 2)  # -
+    glVertex2f(width / 2 - size / 2 + margin, height - size + margin)  # |
+    glVertex2f(width / 2 + size / 2 - margin, height - size + margin)  # -
+    glEnd()
+    draw_square(width - size, 0, size)
+    glColor(0, 0, 0)
+    glBegin(GL_LINE_STRIP)
+    glVertex2f(width - size + margin, height - margin)
+    glVertex2f(width - margin, height - margin)  # -
+    glVertex2f(width - margin, height - size / 2)  # |
+    glVertex2f(width - size + margin, height - size / 2)  # -
+    glVertex2f(width - margin, height - size / 2)  # -
+    glVertex2f(width - margin, height - size + margin)  # |
+    glVertex2f(width - (size - margin), height - size + margin)  # -
+    glEnd()
+
+def draw_overlay():
+    glDisable(GL_DEPTH_TEST)
+    glMatrixMode(GL_PROJECTION)
+    glLoadIdentity()
+    width = glutGet(GLUT_WINDOW_WIDTH)
+    height = glutGet(GLUT_WINDOW_HEIGHT)
+    gluOrtho2D(0, width, 0, height)
+
+    glMatrixMode(GL_MODELVIEW)
+    glPushMatrix()
+    glLoadIdentity()
+
+    draw_numbers(width, height)
+    glColor(0.8, 0.8, 0.8)
+    glRectf(0, 0, width, height/10)
     glPopMatrix()
 
 def DrawGLScene():
@@ -436,6 +497,10 @@ def DrawGLScene():
     glEnable(GL_LIGHT1)
 
     draw_game(potentialBoard1["friendly"], potentialBoard1["enemy"]) # Middle board
+    glPushMatrix()
+    glTranslate(0, boardHeight - 200, 0)
+    draw_minions(getPlayed(hand, potentialBoard1['hand']))
+    glPopMatrix()
     glDisable(GL_LIGHT1)
 
     glTranslate(-boardWidth, 0, sqrt(2)*boardHeight/2)
@@ -450,6 +515,10 @@ def DrawGLScene():
     glEnable(GL_LIGHT2)
 
     draw_game(potentialBoard2["friendly"], potentialBoard2["enemy"]) # Left board
+    glPushMatrix()
+    glTranslate(0, boardHeight - 200, 0)
+    draw_minions(getPlayed(hand, potentialBoard2['hand']))
+    glPopMatrix()
     glDisable(GL_LIGHT2)
     glRotate(-45, 0, 1, 0)
     glTranslate(2*boardWidth, 0, 0)
@@ -464,63 +533,18 @@ def DrawGLScene():
     glEnable(GL_LIGHT3)
 
     draw_game(potentialBoard3["friendly"], potentialBoard3["enemy"]) # Right board
+    glPushMatrix()
+    glTranslate(0, boardHeight - 200, 0)
+    draw_minions(getPlayed(hand, potentialBoard3['hand']))
+    glPopMatrix()
     glDisable(GL_LIGHT3)
     glDisable(GL_LIGHT0)
     glDisable(GL_LIGHTING)
     glDisable(GL_TEXTURE_2D)
 
     # Render 2D Overlay
-    glDisable(GL_DEPTH_TEST)
-    glMatrixMode(GL_PROJECTION)
-    glLoadIdentity()
-    width = glutGet(GLUT_WINDOW_WIDTH)
-    height = glutGet(GLUT_WINDOW_HEIGHT)
-    gluOrtho2D(0, width, 0, height)
+    draw_overlay()
 
-    glMatrixMode(GL_MODELVIEW)
-    glPushMatrix()
-    glLoadIdentity()
-    def draw_square(x, y, size):
-        """
-        Treats the top left corner as 0, 0
-        """
-        glColor([0.8*x for x in [1, 1, 1]])
-        glBegin(GL_QUADS)
-        glVertex2f(x, height - y)
-        glVertex2f(x, height - y - size)
-        glVertex2f(x+size, height - y - size)
-        glVertex2f(x+size, height - y)
-        glEnd()
-    size = 50
-    margin = 10
-    draw_square(0, 0, size)
-    glColor(0, 0, 0)
-    glBegin(GL_LINE_STRIP)
-    glVertex2f(size/2, height - margin)
-    glVertex2f(size/2, height - (size - margin))
-    glEnd()
-    draw_square(width/2 - size/2, 0, size)
-    glColor(0, 0, 0)
-    glBegin(GL_LINE_STRIP)
-    glVertex2f(width/2 - size/2 + margin, height - margin)
-    glVertex2f(width/2 + size/2 - margin, height - margin) # -
-    glVertex2f(width/2 + size/2 - margin, height - size/2) # |
-    glVertex2f(width/2 - size/2 + margin, height - size/2) # -
-    glVertex2f(width/2 - size/2 + margin, height - size + margin) # |
-    glVertex2f(width/2 + size/2 - margin, height - size + margin) # -
-    glEnd()
-    draw_square(width - size, 0, size)
-    glColor(0, 0, 0)
-    glBegin(GL_LINE_STRIP)
-    glVertex2f(width - size + margin, height - margin)
-    glVertex2f(width - margin, height - margin) # -
-    glVertex2f(width - margin, height - size/2) # |
-    glVertex2f(width - size + margin, height - size/2) # -
-    glVertex2f(width - margin, height - size/2) # -
-    glVertex2f(width - margin, height - size + margin) # |
-    glVertex2f(width - (size - margin), height - size + margin) # -
-    glEnd()
-    glPopMatrix()
 
 
 
@@ -528,6 +552,13 @@ def DrawGLScene():
 
     time.sleep(0.01)
 
+def getPlayed(hand, potentialHand):
+    resultant = [card['name'] for card in potentialHand]
+    played = []
+    for card in hand:
+        if card['name'] not in resultant:
+            played.append(card)
+    return played
 
 def KeyPressed(key, x, y):
     global CamPhi, CamTheta, CamRange
