@@ -561,12 +561,12 @@ def DrawGLScene():
         TimeRemaining -= 100
         if TimeRemaining <= 0 and Transitioning:
             UpdateFunction()
-            CamPhi = 0
+            CamPhi = -90
             CamTheta = 90
             CamRange = -800
             # Reset to normal view
             TimeRemaining = 2000
-            CamStep = (-2000 - CamRange) / (TimeRemaining / 100)
+            CamStep = (-3000 - CamRange) / (TimeRemaining / 100)
             PhiStep = (30 - CamPhi) / (TimeRemaining / 100)
             ThetaStep = (90 - CamTheta) / (TimeRemaining / 100)
             Transitioning = False
