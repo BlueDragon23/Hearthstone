@@ -22,6 +22,9 @@ import random
 CamPhi = 30
 CamTheta = 90
 CamRange = -3000
+PhiRate = 3
+ThetaRate = 3
+RangeRate = 20
 PerspectiveAngle = 45
 MaximumDataPoint = 0
 cardback = []
@@ -29,6 +32,13 @@ vertexBuffers = 0
 boardWidth = 3080
 boardHeight = 1400
 mana = 3
+TimeRemaining = 0
+CamStep = 0
+PhiStep = 0
+ThetaStep = 0
+previousTime = 0
+UpdateFunction = lambda : 1
+Transitioning = False
 
 # Textures
 textureIds = []
@@ -146,6 +156,54 @@ def ResizeGLScene(nWidth, nHeight):
     gluPerspective(PerspectiveAngle, float(nWidth) / float(nHeight), 0.1, 10000.0)
     glMatrixMode(GL_MODELVIEW)
 
+def handler(button, state, x: int, y: int):
+    if state != GLUT_DOWN:
+        return
+    window_width = glutGet(GLUT_WINDOW_WIDTH)
+    window_height = glutGet(GLUT_WINDOW_HEIGHT)
+    # The following values are based on how the overlay is constructed
+    # If that changes, this will break
+    size = 50
+    pixel = glReadPixels(x, window_height - y, 1, 1, GL_RGB, GL_FLOAT)[0][0]
+    if x < size and y < size:
+        KeyPressed('1', x, y)
+    elif window_width/2 - size/2 < x < window_width/2 + size/2 \
+        and y < size:
+        KeyPressed('2', x, y)
+    elif x > window_width - size and y < size:
+        KeyPressed('3', x, y)
+    elif 0.105 < pixel[0] < 0.115:
+        # Decrease
+        modify_value(x, window_width, lambda a, b: a - b)
+    elif 0.115 < pixel[0] < 0.125:
+        modify_value(x, window_width, lambda a, b: a + b)
+    elif 0.095 < pixel[0] < 0.105:
+        set_value(x, window_width)
+
+
+def modify_value(x, window_width, op):
+    global ThetaRate, RangeRate, PhiRate
+    if x < window_width/3:
+        ThetaRate = min(max(op(ThetaRate, 1), 1), 50)
+        print(ThetaRate)
+    elif x > 2*window_width/3:
+        RangeRate = min(max(op(RangeRate, 1), 1), 50)
+    else:
+        PhiRate = min(max(op(PhiRate, 1), 1), 50)
+
+def set_value(x, window_width):
+    global ThetaRate, PhiRate, RangeRate
+    padding = 50
+    if x < window_width/3:
+        ThetaRate = 50 * ((x - padding)/(window_width/3 - 2*padding))
+    elif x > 2*window_width/3:
+        x = x - 2*window_width/3
+        RangeRate = 50 * ((x - padding)/(window_width/3 - 2*padding))
+    else:
+        x = x - window_width/3
+        PhiRate = 50 * ((x - padding)/(window_width/3 - 2*padding))
+
+###################################################################################
 
 def drawAxes(h):
     # h : length of the axes
@@ -419,6 +477,13 @@ def draw_numbers(width, height):
     glEnd()
 
 def draw_overlay():
+    """
+    Draws a 2D overlay on top of the screen, as a HUD allowing some user interaction
+
+    Warning: If this function is changed, the handler may need
+    to be modified
+    :return:
+    """
     glDisable(GL_DEPTH_TEST)
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
@@ -431,11 +496,45 @@ def draw_overlay():
     glLoadIdentity()
 
     draw_numbers(width, height)
+    # Bottom Panel
     glColor(0.8, 0.8, 0.8)
-    glRectf(0, 0, width, height/10)
+    glRectf(0, 0, width, height/8)
+    # Sliders
+    padding = width / 20
+    def draw_slider(x):
+        glBegin(GL_TRIANGLES)
+        glColor(0.11, 0.11, 0.11)
+        glVertex2f(x + padding/3, height/10/2)
+        glVertex2f(x + 2*padding/3, 2*height/10/3)
+        glVertex2f(x + 2*padding/3, height/10/3)
+        glColor(0.12, 0.12, 0.12)
+        glVertex2f(x + width/3 - padding/3, height/10/2)
+        glVertex2f(x + width/3 - 2*padding/3, 2*height/10/3)
+        glVertex2f(x + width/3 - 2*padding/3, height/10/3)
+        glEnd()
+        glColor(0.1, 0.1, 0.1)
+        glRectf(x + padding, padding, x + width/3 - padding, height/10 - padding)
+    draw_slider(0)
+    draw_slider(width/3)
+    draw_slider(2*width/3)
+    # Slider position
+    glColor(0.5, 0.5, 0.5)
+    vars = []
+    vars.extend([ThetaRate, PhiRate, RangeRate])
+    for i in range(3):
+        x = i*width/3 + padding + vars[i]/50*(width/3 - padding*2)
+        glRectf(x - 5, padding, x + 5, height/10 - padding)
+    # Text
+    labels = ["Horizontal Pan", "Vertical Pan", "Zoom Rate"]
+    for i in range(3):
+        glRasterPos2f(i*width/3 + padding, height/10-10)
+        text = labels[i]
+        for c in text:
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(c))
     glPopMatrix()
 
 def DrawGLScene():
+    global CamRange, CamPhi, CamTheta, TimeRemaining, previousTime, CamStep, ThetaStep, PhiStep, Transitioning
     glEnable(GL_DEPTH_TEST)
     # clear the screen and depth buffer
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -455,6 +554,23 @@ def DrawGLScene():
     # gluLookAt(x, y, z,
     #           0.0, 0.0, 0.0,
     #           0.0, 0.0, 1.0)
+    if (TimeRemaining >= 0):
+        CamRange += CamStep
+        CamPhi += PhiStep
+        CamTheta += ThetaStep
+        TimeRemaining -= 100
+        if TimeRemaining <= 0 and Transitioning:
+            UpdateFunction()
+            CamPhi = 0
+            CamTheta = 90
+            CamRange = -800
+            # Reset to normal view
+            TimeRemaining = 2000
+            CamStep = (-2000 - CamRange) / (TimeRemaining / 100)
+            PhiStep = (30 - CamPhi) / (TimeRemaining / 100)
+            ThetaStep = (90 - CamTheta) / (TimeRemaining / 100)
+            Transitioning = False
+    print("Theta: {}, Phi: {}, Range: {}".format(CamTheta, CamPhi, CamRange))
     x = CamRange * cos(CamTheta * pi / 180)
     y = CamRange * sin(CamTheta * pi / 180)
     lookX = boardHeight * cos(CamTheta * pi / 180)
@@ -564,6 +680,7 @@ def KeyPressed(key, x, y):
     global CamPhi, CamTheta, CamRange
     global friendlyBoard, enemyBoard, potentialBoard1, potentialBoard2, potentialBoard3, previousBoard, hand
     global mana
+    global CamStep, PhiStep, ThetaStep, TimeRemaining, UpdateFunction, Transitioning
 
     # 'ord' gives the ascii int code of a character
     # 'chr' gives the character associated to the ascii int code.
@@ -574,127 +691,139 @@ def KeyPressed(key, x, y):
         glutDestroyWindow(hWindow)
         sys.exit()
     elif 's' in usedKeys and key == ord('S') or key == ord('s'):
-        CamPhi -= 2
+        CamPhi -= PhiRate
         if CamPhi < -90:
             CamPhi = -90  # Limit
     elif 'w' in usedKeys and key == ord('W') or key == ord('w'):
-        CamPhi += 2
+        CamPhi += PhiRate
         if CamPhi > 90:
             CamPhi = 90  # Limit
     elif 'a' in usedKeys and key == ord('A') or key == ord('a'):
-        CamTheta += 3
+        CamTheta += ThetaRate
         if CamTheta > 360:
             CamTheta -= 360  # Modulus
     elif 'd' in usedKeys and key == ord('D') or key == ord('d'):
-        CamTheta -= 3
+        CamTheta -= ThetaRate
         if CamTheta < 0:
             CamTheta += 360  # Modulus
     elif 'e' in usedKeys and key == ord('E') or key == ord('e'):
-        CamRange -= 50
+        CamRange -= RangeRate
     elif 'q' in usedKeys and key == ord('Q') or key == ord('q'):
-        CamRange += 50
+        CamRange += RangeRate
     elif ord('1') <= key <= ord('3'):
+
         previousBoard = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
         mana = min(10, mana + 1)
+        TimeRemaining = 2000
+        CamStep = (-400 - CamRange) / (TimeRemaining / 100)
+        PhiStep = (30 - CamPhi) / (TimeRemaining / 100)
+        Transitioning = True
         if key == ord('2'):
-            # First selection
-            friendlyBoard = potentialBoard1["friendly"][:]
-            enemyBoard = potentialBoard1["enemy"][:]
-            hand = potentialBoard1["hand"][:]
-            # Next turn
-            enemyBoard.append(data.select_minion(minions, "Acolyte of Pain"))
-            init_texture(enemyBoard[-1]['name'])
-            hand.append(data.select_minion(cards, "Soulfire"))
-            init_texture(hand[-1]['name'])
-
-            potentialBoard1 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
-            potentialBoard1["friendly"].append(data.select_minion(minions, "Imp Gang Boss"))
-            potentialBoard1["friendly"].append(data.select_minion(minions, "Flame Imp"))
-            potentialBoard1["hand"].remove(potentialBoard1["hand"][0])
-            potentialBoard1["hand"].remove(potentialBoard1["hand"][0])
-            index = \
-            [i for i in range(len(potentialBoard1["friendly"])) if potentialBoard1["friendly"][i]['name'] == "Flame Imp"][0]
-            potentialBoard1["friendly"][index] = potentialBoard1["friendly"][index].copy()
-            potentialBoard1["friendly"][index]["health"] = 1
-            index = \
-            [i for i in range(len(potentialBoard1["enemy"])) if potentialBoard1["enemy"][i]['name'] == "Acolyte of Pain"][0]
-            potentialBoard1["enemy"].remove(potentialBoard1["enemy"][index])
-
-            potentialBoard2 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
-
-            potentialBoard2["friendly"].append(data.select_minion(minions, "Imp Gang Boss"))
-            potentialBoard2["friendly"].append(data.select_minion(minions, "Flame Imp"))
-            potentialBoard2["hand"].remove(potentialBoard2["hand"][0])
-            potentialBoard2["hand"].remove(potentialBoard2["hand"][0])
-
-            potentialBoard3 = potentialBoard1
+            ThetaStep = (90 - CamTheta) / (TimeRemaining / 100)
+            UpdateFunction = selected_2
         elif key == ord('1'):
-            # Second selection
-            friendlyBoard = potentialBoard2["friendly"][:]
-            enemyBoard = potentialBoard2["enemy"][:]
-            hand = potentialBoard2["hand"][:]
-            # Next turn
-            enemyBoard.append(data.select_minion(minions, "Acolyte of Pain"))
-            init_texture(enemyBoard[-1]['name'])
-            hand.append(data.select_minion(cards, "Soulfire"))
-            init_texture(hand[-1]['name'])
-
-            potentialBoard1 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
-            potentialBoard1["friendly"].append(data.select_minion(minions, "Imp Gang Boss"))
-            index = \
-                [i for i in range(len(potentialBoard1["hand"])) if
-                 potentialBoard1["hand"][i]['name'] == "Imp Gang Boss"][0]
-            potentialBoard1["hand"].remove(potentialBoard1["hand"][index])
-            index = \
-            [i for i in range(len(potentialBoard1["hand"])) if potentialBoard1["hand"][i]['name'] == "Soulfire"][0]
-            potentialBoard1["hand"].remove(potentialBoard1["hand"][index])
-            index = \
-            [i for i in range(len(potentialBoard1["enemy"])) if potentialBoard1["enemy"][i]['name'] == "Acolyte of Pain"][0]
-            potentialBoard1["enemy"].remove(potentialBoard1["enemy"][index])
-
-
-            potentialBoard2 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
-            potentialBoard2["friendly"].append(data.select_minion(minions, "Imp Gang Boss"))
-            index = \
-            [i for i in range(len(potentialBoard2["hand"])) if potentialBoard2["hand"][i]['name'] == "Imp Gang Boss"][0]
-            potentialBoard2["hand"].remove(potentialBoard2["hand"][index])
-            index = \
-            [i for i in range(len(potentialBoard2["hand"])) if potentialBoard2["hand"][i]['name'] == "Soulfire"][0]
-            potentialBoard2["hand"].remove(potentialBoard2["hand"][index])
-
-
-            potentialBoard3 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
-            index = \
-            [i for i in range(len(potentialBoard3["enemy"])) if potentialBoard3["enemy"][i]['name'] == "Acolyte of Pain"][0]
-            potentialBoard3["enemy"].remove(potentialBoard3["enemy"][index])
-            index = \
-            [i for i in range(len(potentialBoard3["friendly"])) if potentialBoard3["friendly"][i]['name'] == "Flame Imp"][0]
-            potentialBoard3["friendly"][index] = potentialBoard3["friendly"][index].copy()
-            potentialBoard3["friendly"][index]["health"] = 1
-            index = \
-            [i for i in range(len(potentialBoard3["hand"])) if potentialBoard3["hand"][i]['name'] == "Mortal Coil"][0]
-            potentialBoard3["hand"].remove(potentialBoard3["hand"][index])
+            ThetaStep = (60 - CamTheta) / (TimeRemaining / 100)
+            UpdateFunction = selected_1
         elif key == ord('3'):
-            # Third selection
-            friendlyBoard = potentialBoard3["friendly"][:]
-            enemyBoard = potentialBoard3["enemy"][:]
-            hand = potentialBoard3["hand"][:]
-            # Next turn
-            enemyBoard.append(data.select_minion(minions, "Acolyte of Pain"))
-            init_texture(enemyBoard[-1]['name'])
-            hand.append(data.select_minion(cards, "Soulfire"))
-            init_texture(hand[-1]['name'])
-
-            potentialBoard1 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
-
-            potentialBoard2 = {"friendly": friendlyBoard[:], "enemy": enemyBoard[:], "hand": hand[:]}
-
-            potentialBoard3 = {"friendly" : friendlyBoard[:], "enemy" : enemyBoard[:], "hand" : hand[:]}
+            ThetaStep = (120 - CamTheta) / (TimeRemaining / 100)
+            UpdateFunction = selected_3
         # Redefine potential boards
 
     elif key == ord('0'):
+        # Go backwards
         friendlyBoard = previousBoard["friendly"]
         enemyBoard = previousBoard["enemy"]
+
+
+def selected_3():
+    global friendlyBoard, enemyBoard, hand, potentialBoard1, potentialBoard2, potentialBoard3
+    # Third selection
+    friendlyBoard = potentialBoard3["friendly"][:]
+    enemyBoard = potentialBoard3["enemy"][:]
+    hand = potentialBoard3["hand"][:]
+    # Next turn
+    enemyBoard.append(data.select_minion(minions, "Acolyte of Pain"))
+    init_texture(enemyBoard[-1]['name'])
+    hand.append(data.select_minion(cards, "Soulfire"))
+    init_texture(hand[-1]['name'])
+    potentialBoard1 = {"friendly": friendlyBoard[:], "enemy": enemyBoard[:], "hand": hand[:]}
+    potentialBoard2 = {"friendly": friendlyBoard[:], "enemy": enemyBoard[:], "hand": hand[:]}
+    potentialBoard3 = {"friendly": friendlyBoard[:], "enemy": enemyBoard[:], "hand": hand[:]}
+
+
+def selected_1():
+    global friendlyBoard, enemyBoard, hand, potentialBoard1, potentialBoard2, potentialBoard3
+    # Second selection
+    friendlyBoard = potentialBoard2["friendly"][:]
+    enemyBoard = potentialBoard2["enemy"][:]
+    hand = potentialBoard2["hand"][:]
+    # Next turn
+    enemyBoard.append(data.select_minion(minions, "Acolyte of Pain"))
+    init_texture(enemyBoard[-1]['name'])
+    hand.append(data.select_minion(cards, "Soulfire"))
+    init_texture(hand[-1]['name'])
+    potentialBoard1 = {"friendly": friendlyBoard[:], "enemy": enemyBoard[:], "hand": hand[:]}
+    potentialBoard1["friendly"].append(data.select_minion(minions, "Imp Gang Boss"))
+    index = \
+        [i for i in range(len(potentialBoard1["hand"])) if
+         potentialBoard1["hand"][i]['name'] == "Imp Gang Boss"][0]
+    potentialBoard1["hand"].remove(potentialBoard1["hand"][index])
+    index = \
+        [i for i in range(len(potentialBoard1["hand"])) if potentialBoard1["hand"][i]['name'] == "Soulfire"][0]
+    potentialBoard1["hand"].remove(potentialBoard1["hand"][index])
+    index = \
+        [i for i in range(len(potentialBoard1["enemy"])) if potentialBoard1["enemy"][i]['name'] == "Acolyte of Pain"][0]
+    potentialBoard1["enemy"].remove(potentialBoard1["enemy"][index])
+    potentialBoard2 = {"friendly": friendlyBoard[:], "enemy": enemyBoard[:], "hand": hand[:]}
+    potentialBoard2["friendly"].append(data.select_minion(minions, "Imp Gang Boss"))
+    index = \
+        [i for i in range(len(potentialBoard2["hand"])) if potentialBoard2["hand"][i]['name'] == "Imp Gang Boss"][0]
+    potentialBoard2["hand"].remove(potentialBoard2["hand"][index])
+    index = \
+        [i for i in range(len(potentialBoard2["hand"])) if potentialBoard2["hand"][i]['name'] == "Soulfire"][0]
+    potentialBoard2["hand"].remove(potentialBoard2["hand"][index])
+    potentialBoard3 = {"friendly": friendlyBoard[:], "enemy": enemyBoard[:], "hand": hand[:]}
+    index = \
+        [i for i in range(len(potentialBoard3["enemy"])) if potentialBoard3["enemy"][i]['name'] == "Acolyte of Pain"][0]
+    potentialBoard3["enemy"].remove(potentialBoard3["enemy"][index])
+    index = \
+        [i for i in range(len(potentialBoard3["friendly"])) if potentialBoard3["friendly"][i]['name'] == "Flame Imp"][0]
+    potentialBoard3["friendly"][index] = potentialBoard3["friendly"][index].copy()
+    potentialBoard3["friendly"][index]["health"] = 1
+    index = \
+        [i for i in range(len(potentialBoard3["hand"])) if potentialBoard3["hand"][i]['name'] == "Mortal Coil"][0]
+    potentialBoard3["hand"].remove(potentialBoard3["hand"][index])
+
+
+def selected_2():
+    global friendlyBoard, enemyBoard, hand, potentialBoard1, potentialBoard2, potentialBoard3
+    # First selection
+    friendlyBoard = potentialBoard1["friendly"][:]
+    enemyBoard = potentialBoard1["enemy"][:]
+    hand = potentialBoard1["hand"][:]
+    # Next turn
+    enemyBoard.append(data.select_minion(minions, "Acolyte of Pain"))
+    init_texture(enemyBoard[-1]['name'])
+    hand.append(data.select_minion(cards, "Soulfire"))
+    init_texture(hand[-1]['name'])
+    potentialBoard1 = {"friendly": friendlyBoard[:], "enemy": enemyBoard[:], "hand": hand[:]}
+    potentialBoard1["friendly"].append(data.select_minion(minions, "Imp Gang Boss"))
+    potentialBoard1["friendly"].append(data.select_minion(minions, "Flame Imp"))
+    potentialBoard1["hand"].remove(potentialBoard1["hand"][0])
+    potentialBoard1["hand"].remove(potentialBoard1["hand"][0])
+    index = \
+        [i for i in range(len(potentialBoard1["friendly"])) if potentialBoard1["friendly"][i]['name'] == "Flame Imp"][0]
+    potentialBoard1["friendly"][index] = potentialBoard1["friendly"][index].copy()
+    potentialBoard1["friendly"][index]["health"] = 1
+    index = \
+        [i for i in range(len(potentialBoard1["enemy"])) if potentialBoard1["enemy"][i]['name'] == "Acolyte of Pain"][0]
+    potentialBoard1["enemy"].remove(potentialBoard1["enemy"][index])
+    potentialBoard2 = {"friendly": friendlyBoard[:], "enemy": enemyBoard[:], "hand": hand[:]}
+    potentialBoard2["friendly"].append(data.select_minion(minions, "Imp Gang Boss"))
+    potentialBoard2["friendly"].append(data.select_minion(minions, "Flame Imp"))
+    potentialBoard2["hand"].remove(potentialBoard2["hand"][0])
+    potentialBoard2["hand"].remove(potentialBoard2["hand"][0])
+    potentialBoard3 = potentialBoard1
 
 
 if __name__ == "__main__":
@@ -786,7 +915,7 @@ if __name__ == "__main__":
     # setup the keyboard function callback to handle key presses
     glutKeyboardFunc(KeyPressed)
     # setup the mouse callback
-    # glutMouseFunc(handler)
+    glutMouseFunc(handler)
 
     # Tell people how to exit, then start the program...
     print("To quit: Select OpenGL display window with mouse, then press ESC key.")
