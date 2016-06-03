@@ -3,9 +3,9 @@ from math import *
 import time
 from OpenGL.GL import *
 import logging
-logging.basicConfig(level=logging.DEBUG)
-OpenGL.FULL_LOGGING = True
-OpenGL.ERROR_ON_COPY = True
+# logging.basicConfig(level=logging.DEBUG)
+# OpenGL.FULL_LOGGING = True
+# OpenGL.ERROR_ON_COPY = True
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
 import data
